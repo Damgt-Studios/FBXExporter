@@ -62,6 +62,8 @@ struct SimpleVertexAnim
 	XMFLOAT3 Position;
 	XMFLOAT3 Tex;
 	XMFLOAT3 Normal;
+	XMFLOAT3 Tangent;
+
 	XMINT4 Joint;
 	XMFLOAT4 Weight;
 
@@ -83,7 +85,7 @@ void ProcessFbxMesh(FbxNode* Node, const char* meshfile, const char* matpath = "
 void Compactify(SimpleVertex* verticesCompact, const char* meshfile);
 void ComputeTangent(SimpleMesh& simpleMesh);
 
-void Load_FBX(const char* meshFileName, SimpleMesh& mesh);
+void Load_Mesh(const char* meshFileName, SimpleMesh& mesh);
 
 void  FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* matPath, const char* matfile)
 {
@@ -636,7 +638,138 @@ void  ComputeTangent(SimpleMesh& simpleMesh)
 
 	}
 };
-void  Load_FBX(const char* meshFileName, SimpleMesh& mesh)
+void  ComputeTangent(SimpleMeshAnim& simpleMesh)
+{
+	//////////////////////Compute Normals///////////////////////////
+	//If computeNormals was set to true then we will create our own
+	//normals, if it was set to false we will use the obj files normals
+	std::vector<XMFLOAT3> tempNormal;
+
+	//normalized and unnormalized normals
+	XMFLOAT3 unnormalized = XMFLOAT3(0.0f, 0.0f, 0.0f);
+
+	///////////////**************new**************////////////////////
+	//tangent stuff
+	std::vector<XMFLOAT3> tempTangent;
+	XMFLOAT3 tangent = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	float tcU1, tcV1, tcU2, tcV2;
+	///////////////**************new**************////////////////////
+
+	//Used to get vectors (sides) from the position of the verts
+	float vecX, vecY, vecZ;
+
+	//Two edges of our triangle
+	XMVECTOR edge1 = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+	XMVECTOR edge2 = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+
+	//Compute face normals
+	//And Tangents
+	for (int i = 0; i < simpleMesh.indicesList.size() / 3; ++i)
+	{
+		//Get the vector describing one edge of our triangle (edge 0,2)
+		vecX = simpleMesh.vertexList[simpleMesh.indicesList[(i * 3)]].Position.x - simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 2]].Position.x;
+		vecY = simpleMesh.vertexList[simpleMesh.indicesList[(i * 3)]].Position.y - simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 2]].Position.y;
+		vecZ = simpleMesh.vertexList[simpleMesh.indicesList[(i * 3)]].Position.z - simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 2]].Position.z;
+		edge1 = XMVectorSet(vecX, vecY, vecZ, 0.0f);    //Create our first edge
+
+		//Get the vector describing another edge of our triangle (edge 2,1)
+		vecX = simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 2]].Position.x - simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 1]].Position.x;
+		vecY = simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 2]].Position.y - simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 1]].Position.y;
+		vecZ = simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 2]].Position.z - simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 1]].Position.z;
+		edge2 = XMVectorSet(vecX, vecY, vecZ, 0.0f);    //Create our second edge
+
+		//Cross multiply the two edge vectors to get the un-normalized face normal
+		XMStoreFloat3(&unnormalized, XMVector3Cross(edge1, edge2));
+
+		tempNormal.push_back(unnormalized);
+
+		///////////////**************new**************////////////////////
+		//Find first texture coordinate edge 2d vector
+		tcU1 = simpleMesh.vertexList[simpleMesh.indicesList[(i * 3)]].Tex.x - simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 2]].Tex.x;
+		tcV1 = simpleMesh.vertexList[simpleMesh.indicesList[(i * 3)]].Tex.y - simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 2]].Tex.y;
+
+		//Find second texture coordinate edge 2d vector
+		tcU2 = simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 2]].Tex.x - simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 1]].Tex.x;
+		tcV2 = simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 2]].Tex.y - simpleMesh.vertexList[simpleMesh.indicesList[(i * 3) + 1]].Tex.y;
+
+		//Find tangent using both tex coord edges and position edges
+		tangent.x = (tcV1 * XMVectorGetX(edge1) - tcV2 * XMVectorGetX(edge2)) * (1.0f / (tcU1 * tcV2 - tcU2 * tcV1));
+		tangent.y = (tcV1 * XMVectorGetY(edge1) - tcV2 * XMVectorGetY(edge2)) * (1.0f / (tcU1 * tcV2 - tcU2 * tcV1));
+		tangent.z = (tcV1 * XMVectorGetZ(edge1) - tcV2 * XMVectorGetZ(edge2)) * (1.0f / (tcU1 * tcV2 - tcU2 * tcV1));
+
+		tempTangent.push_back(tangent);
+		///////////////**************new**************////////////////////
+	}
+
+	//Compute vertex normals (normal Averaging)
+	XMVECTOR normalSum = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+	XMVECTOR tangentSum = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+	int facesUsing = 0;
+	float tX, tY, tZ;    //temp axis variables
+
+	//Go through each vertex
+	for (int i = 0; i < simpleMesh.vertexList.size(); ++i)
+	{
+		//Check which triangles use this vertex
+		for (int j = 0; j < simpleMesh.indicesList.size() / 3; ++j)
+		{
+			if (simpleMesh.indicesList[j * 3] == i ||
+				simpleMesh.indicesList[(j * 3) + 1] == i ||
+				simpleMesh.indicesList[(j * 3) + 2] == i)
+			{
+				tX = XMVectorGetX(normalSum) + tempNormal[j].x;
+				tY = XMVectorGetY(normalSum) + tempNormal[j].y;
+				tZ = XMVectorGetZ(normalSum) + tempNormal[j].z;
+
+				normalSum = XMVectorSet(tX, tY, tZ, 0.0f);    //If a face is using the vertex, add the unormalized face normal to the normalSum
+
+				///////////////**************new**************////////////////////        
+				//We can reuse tX, tY, tZ to sum up tangents
+				tX = XMVectorGetX(tangentSum) + tempTangent[j].x;
+				tY = XMVectorGetY(tangentSum) + tempTangent[j].y;
+				tZ = XMVectorGetZ(tangentSum) + tempTangent[j].z;
+
+				tangentSum = XMVectorSet(tX, tY, tZ, 0.0f); //sum up face tangents using this vertex
+				///////////////**************new**************////////////////////
+
+				facesUsing++;
+			}
+		}
+
+		//Get the actual normal by dividing the normalSum by the number of faces sharing the vertex
+		normalSum = normalSum / facesUsing;
+		///////////////**************new**************////////////////////
+		tangentSum = tangentSum / facesUsing;
+		///////////////**************new**************////////////////////
+
+		//Normalize the normalSum vector and tangent
+		normalSum = XMVector3Normalize(normalSum);
+		///////////////**************new**************////////////////////
+		tangentSum = XMVector3Normalize(tangentSum);
+		///////////////**************new**************////////////////////
+
+		//Store the normal and tangent in our current vertex
+		simpleMesh.vertexList[i].Normal.x = XMVectorGetX(normalSum);
+		simpleMesh.vertexList[i].Normal.y = XMVectorGetY(normalSum);
+		simpleMesh.vertexList[i].Normal.z = XMVectorGetZ(normalSum);
+
+		///////////////**************new**************////////////////////
+		simpleMesh.vertexList[i].Tangent.x = XMVectorGetX(tangentSum);
+		simpleMesh.vertexList[i].Tangent.y = XMVectorGetY(tangentSum);
+		simpleMesh.vertexList[i].Tangent.z = XMVectorGetZ(tangentSum);
+		///////////////**************new**************////////////////////
+
+		//Clear normalSum, tangentSum and facesUsing for next vertex
+		normalSum = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+		///////////////**************new**************////////////////////
+		tangentSum = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+		///////////////**************new**************////////////////////
+		facesUsing = 0;
+
+	}
+};
+
+void  Load_Mesh(const char* meshFileName, SimpleMesh& mesh)
 {
 
 	std::fstream file{ meshFileName, std::ios_base::in | std::ios_base::binary };
@@ -679,12 +812,20 @@ void  Load_FBX(const char* meshFileName, SimpleMesh& mesh)
 	file.close();
 };
 
-
+//Animation
 struct fbx_joint
 {
 	FbxNode* node; XMMATRIX global_xform; int parent_index; int childCount;
 
 };
+struct bones
+{
+	 XMMATRIX global_xform; int parent_index; int childCount;
+
+};
+vector<bones> jointData;
+
+
 struct keyframe
 {
 	double time; vector<XMMATRIX> jointsMatrix; vector<int> parents;
@@ -709,6 +850,10 @@ struct influence
 	int joint; float weight;
 };
 void ProcessFbxMeshAnim(FbxNode* Node, const char* meshfile, const char* matpath = "", const char* matfile = "");
+void GetClusters(FbxSkin* skin);
+void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* animFile, const char* matPath = "", const char* matfile = "");
+void CompactifyAnim(SimpleVertexAnim* verticesCompact, const char* meshfile);
+void WriteOutAnimationData(const char* AnimFile);
 
 vector<fbx_joint> joints;
 SimpleVertexAnim* verticesAnim;
@@ -766,8 +911,7 @@ void ProcessFbxSkeleton(FbxNode* Node, int parentindex)
 
 
 }
-void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* matPath = "", const char* matfile = "");
-void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* matPath, const char* matfile)
+void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* animFile, const char* matPath, const char* matfile)
 {
 	// Change the following filename to a suitable filename value.
 	const char* lFilename = fbxfile;
@@ -890,7 +1034,7 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* ma
 
 	ProcessFbxMeshAnim(lScene->GetRootNode(), meshfile, matPath, matfile);
 
-
+	WriteOutAnimationData(animFile);
 }
 void GetClusters(FbxSkin* skin)
 {
@@ -983,8 +1127,8 @@ void ProcessFbxMeshAnim(FbxNode* Node, const char* meshfile, const char* matpath
 				verticesAnim[j].Position.z = (float)vert.mData[2];
 				//vertices[j].Color = RAND_COLOR;
 				// Generate random normal for first attempt at getting to render
-				vertices[j].Tex.x = vertices[j].Position.x;
-				vertices[j].Tex.y = vertices[j].Position.y;
+				verticesAnim[j].Tex.x = verticesAnim[j].Position.x;
+				verticesAnim[j].Tex.y = verticesAnim[j].Position.y;
 
 				verticesAnim[j].Joint.x = control_point_influences[j][0].joint;
 				verticesAnim[j].Joint.y = control_point_influences[j][1].joint;
@@ -1233,7 +1377,7 @@ void ProcessFbxMeshAnim(FbxNode* Node, const char* meshfile, const char* matpath
 
 			if (true)
 			{
-				Compactify(vertices, meshfile);
+				CompactifyAnim(verticesAnim, meshfile);
 
 			}
 			else
@@ -1252,7 +1396,7 @@ void ProcessFbxMeshAnim(FbxNode* Node, const char* meshfile, const char* matpath
 
 }
 
-void Load_AnimFBX(const char* meshFileName, SimpleMeshAnim& mesh)
+void Load_AnimMesh(const char* meshFileName, SimpleMeshAnim& mesh)
 {
 
 	std::fstream file{ meshFileName, std::ios_base::in | std::ios_base::binary };
@@ -1301,34 +1445,48 @@ void WriteOutAnimationData(const char* AnimFile)
 	std::ofstream file(path, std::ios::trunc | std::ios::binary | std::ios::out);
 
 	assert(file.is_open());
+	jointData.resize(joints.size());
+	for (unsigned int i = 0; i < joints.size(); i++)
+	{
+		jointData[i].childCount = joints[i].childCount;
+		jointData[i].global_xform = joints[i].global_xform;
+		jointData[i].parent_index = joints[i].parent_index;
 
-	uint32_t joint_count = (uint32_t)joints.size();
-
+	
+	}
+	
+	uint32_t joint_count = (uint32_t)jointData.size();
 	file.write((const char*)&joint_count, sizeof(uint32_t));
-	file.write((const char*)joints.data(), sizeof(fbx_joint) * joints.size());
-
 	uint32_t inv_joint_count = (uint32_t)InverseJoints.size();
-
 	file.write((const char*)&inv_joint_count, sizeof(uint32_t));
-	file.write((const char*)InverseJoints.data(), sizeof(XMMATRIX) * InverseJoints.size());
 
-	uint32_t clip_duration = (uint32_t)out_clip.duration;
-	file.write((const char*)&clip_duration, sizeof(uint32_t));
+
+	double clip_duration = out_clip.duration;
+	file.write((const char*)&clip_duration, sizeof(double));
 
 	uint32_t key_joint_count = (uint32_t)out_clip.frames.size();
 	file.write((const char*)&key_joint_count, sizeof(uint32_t));
+
+
 
 	for (unsigned int i = 0; i < key_joint_count; i++)
 	{
 		uint32_t matrix_joint_count = (uint32_t)out_clip.frames[i].jointsMatrix.size();
 		file.write((const char*)&matrix_joint_count, sizeof(uint32_t));
-		file.write((const char*)&out_clip.frames[i].time, sizeof(uint32_t));
-		file.write((const char*)out_clip.frames[i].jointsMatrix.data(), sizeof(XMMATRIX) * out_clip.frames[i].jointsMatrix.size());
+		file.write((const char*)&out_clip.frames[i].time, sizeof(double));
 		uint32_t parents_joint_count = (uint32_t)out_clip.frames[i].parents.size();
 		file.write((const char*)&parents_joint_count, sizeof(uint32_t));
+
 		file.write((const char*)out_clip.frames[i].parents.data(), sizeof(uint32_t) * out_clip.frames[i].parents.size());
 
+		file.write((const char*)out_clip.frames[i].jointsMatrix.data(), sizeof(XMMATRIX) * out_clip.frames[i].jointsMatrix.size());
+
 	}
+
+	file.write((const char*)jointData.data(), sizeof(bones) * jointData.size());
+
+
+	file.write((const char*)InverseJoints.data(), sizeof(XMMATRIX) * InverseJoints.size());
 
 
 
@@ -1341,7 +1499,7 @@ void WriteOutAnimationData(const char* AnimFile)
 
 
 }
-void Load_AnimMeshFBX(const char* animFileName, vector<fbx_joint>& skeleton, vector<XMMATRIX>& inverse, anim_clip& clip)
+void Load_AnimFile(const char* animFileName, vector<bones>& skeleton, vector<XMMATRIX>& inverse, anim_clip& clip)
 {
 
 	std::fstream file{ animFileName, std::ios_base::in | std::ios_base::binary };
@@ -1350,18 +1508,17 @@ void Load_AnimMeshFBX(const char* animFileName, vector<fbx_joint>& skeleton, vec
 
 	uint32_t joint_Count;
 	file.read((char*)&joint_Count, sizeof(uint32_t));
-	skeleton.resize(joint_Count);
-	file.read((char*)skeleton.data(), sizeof(fbx_joint) * joint_Count);
-
 	uint32_t inv_joint_count;
 	file.read((char*)&inv_joint_count, sizeof(uint32_t));
-	inverse.resize(inv_joint_count);
-	file.read((char*)inverse.data(), sizeof(XMMATRIX) * inv_joint_count);
 
-
-	file.read((char*)&clip.duration, sizeof(uint32_t));
+	double duration;
+	file.read((char*)&duration, sizeof(double));
+	clip.duration = duration;
 	uint32_t key_joint_count;
 	file.read((char*)&key_joint_count, sizeof(uint32_t));
+
+	clip.frames.resize(key_joint_count);
+
 
 	for (unsigned int i = 0; i < key_joint_count; i++)
 	{
@@ -1369,14 +1526,24 @@ void Load_AnimMeshFBX(const char* animFileName, vector<fbx_joint>& skeleton, vec
 		uint32_t matrix_joint_count;
 		file.read((char*)&matrix_joint_count, sizeof(uint32_t));
 		clip.frames[i].jointsMatrix.resize(matrix_joint_count);
-		file.read((char*)&clip.frames[i].time, sizeof(uint32_t));
-		file.read((char*)clip.frames[i].jointsMatrix.data(), sizeof(XMMATRIX) * matrix_joint_count);
+		file.read((char*)&clip.frames[i].time, sizeof(double));
 		uint32_t parents_joint_count;
 		file.read((char*)&parents_joint_count, sizeof(uint32_t));
 		clip.frames[i].parents.resize(parents_joint_count);
+
+
 		file.read((char*)clip.frames[i].parents.data(), sizeof(int) * parents_joint_count);
 
+		file.read((char*)clip.frames[i].jointsMatrix.data(), sizeof(XMMATRIX) * matrix_joint_count);
+
+
 	}
+	skeleton.resize(joint_Count);
+	file.read((char*)skeleton.data(), sizeof(bones) * joint_Count);
+
+	inverse.resize(inv_joint_count);
+	file.read((char*)inverse.data(), sizeof(XMMATRIX) * inv_joint_count);
+
 
 
 	file.close();
@@ -1451,6 +1618,12 @@ void CompactifyAnim(SimpleVertexAnim* verticesCompact, const char* meshfile)
 	{
 		indicesList.push_back(indices[i]);
 	}
+	SimpleMeshAnim GenerateTangents;
+	GenerateTangents.vertexList = vertexList;
+	GenerateTangents.indicesList = indicesList;
+	ComputeTangent(GenerateTangents);
+	vertexList = GenerateTangents.vertexList;
+	indicesList = GenerateTangents.indicesList;
 
 
 	// print out some stats
