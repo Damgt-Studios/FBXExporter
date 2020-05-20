@@ -16,6 +16,7 @@ int main()
 	//Also it wont matter if the model is not textured by default
 	// so do something like I did in the following line
 	FBX_InitLoad("Assets/Malbers Animations/Monsters/Forest Golem/Models/Forest_Golem_Test.fbx", "ObjectData/ForestGolem_1.mesh");
+
 	//FBX_InitLoad("Assets/cube.fbx", "ObjectData/cube.mesh");
 	return 1;
 }
