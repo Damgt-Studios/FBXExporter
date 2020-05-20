@@ -923,11 +923,14 @@ void GetChildJoints()
 			{
 				fbx_joint childJoint;
 				childJoint.node = child;
+				FbxAMatrix m = child->EvaluateGlobalTransform();
+				childJoint.global_xform = FBXAMatrix_To_XMMATRIX(m);
 				childJoint.parent_index = i;
 				joints.push_back(childJoint);
 
 				XMFLOAT4X4 mat;
 				FbxAMatrix matrix = child->EvaluateGlobalTransform().Inverse();
+				
 				for (unsigned int k = 0; k < 4; k++)
 				{
 					for (unsigned int l = 0; l < 4; l++)
@@ -1007,6 +1010,8 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 					{
 						fbx_joint rootJoint;
 						rootJoint.node = skeletonNode;
+						FbxAMatrix m = skeletonNode->EvaluateGlobalTransform();
+						rootJoint.global_xform = FBXAMatrix_To_XMMATRIX(m);
 						rootJoint.parent_index = -1;
 						joints.push_back(rootJoint);
 						XMFLOAT4X4 mat;
