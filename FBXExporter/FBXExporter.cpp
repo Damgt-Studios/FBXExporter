@@ -20,7 +20,7 @@ int main()
 //We Now Can load meshes with Animations 
 	//The following Function works the same as the one from before however now it generates meshes with joint and weight data
 	//Also generates a Animation file with base joint data, inverse joint data and animation clips
-	Anim_FBX_InitLoad("Assets/BattleMage.fbx", "ObjectData/TestAnim.AnimMesh", "ObjectData/Test.animfile");
+	Anim_FBX_InitLoad("Assets/Run.fbx", "ObjectData/TestAnim.AnimMesh", "ObjectData/Test.animfile");
 	SimpleMeshAnim test;
 	//The Following function  loads in the mesh
 	Load_AnimMesh("ObjectData/TestAnim.AnimMesh", test);

@@ -1074,10 +1074,10 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 
 		keyframe key;
 		key.time = temp.Get();
-		for (int i = 0; i < joints.size(); i++)
+		for (int j = 0; j < joints.size(); j++)
 		{
 
-			key.jointsMatrix.push_back(FBXAMatrix_To_XMMATRIX(joints[i].node->EvaluateGlobalTransform(key.time)));
+			key.jointsMatrix.push_back(FBXAMatrix_To_XMMATRIX(joints[j].node->EvaluateGlobalTransform(key.time)));
 			key.parents.push_back(joints[i].parent_index);
 		}
 
