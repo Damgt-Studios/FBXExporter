@@ -861,6 +861,22 @@ SimpleVertexAnim* verticesAnim;
 using influence_set = array<influence, MAX_INFLUENCES>;
 vector<influence_set> control_point_influences;
 
+XMMATRIX FBXAMatrix_To_XMMATRIX(FbxAMatrix& m)
+{
+	XMMATRIX out;
+	for (int i = 0; i < 4; i++)
+	{
+		out.r[i].m128_f32[0] = m.Get(i, 0);
+		out.r[i].m128_f32[1] = m.Get(i, 1);
+		out.r[i].m128_f32[2] = m.Get(i, 2);
+		out.r[i].m128_f32[3] = m.Get(i, 3);
+
+
+
+	}
+	return out;
+
+}
 anim_clip out_clip;
 //void ProcessFbxSkeleton(FbxNode* Node, int parentindex)
 //{
@@ -994,8 +1010,12 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 					{
 						fbx_joint rootJoint;
 						rootJoint.node = skeletonNode;
-						FbxAMatrix matrix = skeletonNode->EvaluateGlobalTransform();
+						FbxAMatrix m = skeletonNode->EvaluateGlobalTransform();
+						rootJoint.global_xform = FBXAMatrix_To_XMMATRIX(m);
+						rootJoint.parent_index = -1;
+						joints.push_back(rootJoint);
 						XMFLOAT4X4 mat;
+						FbxAMatrix matrix = skeletonNode->EvaluateGlobalTransform().Inverse();
 						for (unsigned int k = 0; k < 4; k++)
 						{
 							for (unsigned int l = 0; l < 4; l++)
@@ -1004,20 +1024,7 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 							}
 						}
 
-						rootJoint.global_xform = XMLoadFloat4x4(&mat);
-						rootJoint.parent_index = -1;
-						joints.push_back(rootJoint);
-						XMFLOAT4X4 inv_mat;
-						FbxAMatrix inv_matrix = skeletonNode->EvaluateGlobalTransform().Inverse();
-						for (unsigned int k = 0; k < 4; k++)
-						{
-							for (unsigned int l = 0; l < 4; l++)
-							{
-								inv_mat.m[k][l] = inv_matrix.mData[k].Buffer()[l];
-							}
-						}
-
-						XMMATRIX preComp = XMLoadFloat4x4(&inv_mat);
+						XMMATRIX preComp = XMLoadFloat4x4(&mat);
 						InverseJoints.push_back(preComp);
 						GetChildJoints();
 					}
@@ -1067,23 +1074,14 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 
 		keyframe key;
 		key.time = temp.Get();
-		for (unsigned int j = 0; j < joints.size(); j++)
+		for (int i = 0; i < joints.size(); i++)
 		{
-			XMFLOAT4X4 mat;
-			FbxAMatrix matrix = joints[j].node->EvaluateGlobalTransform(key.time);
-			for (unsigned int k = 0; k < 4; k++)
-			{
-				for (unsigned int l = 0; l < 4; l++)
-				{
-					mat.m[k][l] = matrix.mData[k].Buffer()[l];
-				}
-			}
-		
-			key.jointsMatrix.push_back(XMLoadFloat4x4(&mat));
-			key.parents.push_back(joints[j].parent_index);
-		}
-		out_clip.frames.push_back(key);
 
+			key.jointsMatrix.push_back(FBXAMatrix_To_XMMATRIX(joints[i].node->EvaluateGlobalTransform(key.time)));
+			key.parents.push_back(joints[i].parent_index);
+		}
+
+		out_clip.frames.push_back(key);
 	}
 
 	ProcessFbxMeshAnim(lScene->GetRootNode(), meshfile, matPath, matfile);
