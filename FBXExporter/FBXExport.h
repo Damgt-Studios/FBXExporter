@@ -923,7 +923,6 @@ void GetChildJoints()
 			{
 				fbx_joint childJoint;
 				childJoint.node = child;
-				FbxAMatrix m = child->EvaluateGlobalTransform();
 				FbxAMatrix matrix = child->EvaluateGlobalTransform();
 				XMFLOAT4X4 mat;
 				for (unsigned int k = 0; k < 4; k++)
@@ -1092,6 +1091,10 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 		}
 
 		out_clip.frames.push_back(key);
+	}
+	for (int i = 0; i < InverseJoints.size(); i++)
+	{
+		InverseJoints[i] = XMMatrixInverse(nullptr, InverseJoints[i]);
 	}
 
 	ProcessFbxMeshAnim(lScene->GetRootNode(), meshfile, matPath, matfile);
@@ -1529,7 +1532,7 @@ void WriteOutAnimationData(const char* AnimFile)
 	uint32_t key_joint_count = (uint32_t)out_clip.frames.size();
 	file.write((const char*)&key_joint_count, sizeof(uint32_t));
 
-
+	
 
 	for (unsigned int i = 0; i < key_joint_count; i++)
 	{
