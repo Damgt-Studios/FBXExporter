@@ -908,7 +908,17 @@ void GetChildJoints()
 				fbx_joint childJoint;
 				childJoint.node = child;
 				FbxAMatrix m = child->EvaluateGlobalTransform();
-				childJoint.global_xform = FBXAMatrix_To_XMMATRIX(m);
+				FbxAMatrix matrix = child->EvaluateGlobalTransform();
+				XMFLOAT4X4 mat;
+				for (unsigned int k = 0; k < 4; k++)
+				{
+					for (unsigned int l = 0; l < 4; l++)
+					{
+						mat.m[k][l] = matrix.mData[k].Buffer()[l];
+					}
+				}
+				childJoint.global_xform = XMLoadFloat4x4(&mat);
+
 				childJoint.parent_index = i;
 				joints.push_back(childJoint);
 
