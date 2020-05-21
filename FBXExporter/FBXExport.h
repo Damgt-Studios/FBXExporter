@@ -924,13 +924,8 @@ void GetChildJoints()
 				fbx_joint childJoint;
 				childJoint.node = child;
 				FbxAMatrix m = child->EvaluateGlobalTransform();
-				childJoint.global_xform = FBXAMatrix_To_XMMATRIX(m);
-				childJoint.parent_index = i;
-				joints.push_back(childJoint);
-
+				FbxAMatrix matrix = child->EvaluateGlobalTransform();
 				XMFLOAT4X4 mat;
-				FbxAMatrix matrix = child->EvaluateGlobalTransform().Inverse();
-				
 				for (unsigned int k = 0; k < 4; k++)
 				{
 					for (unsigned int l = 0; l < 4; l++)
@@ -938,7 +933,22 @@ void GetChildJoints()
 						mat.m[k][l] = matrix.mData[k].Buffer()[l];
 					}
 				}
-				XMMATRIX preComp = XMLoadFloat4x4(&mat);
+				childJoint.global_xform = XMLoadFloat4x4(&mat);
+
+				childJoint.parent_index = i;
+				joints.push_back(childJoint);
+
+				XMFLOAT4X4 inv_mat;
+				FbxAMatrix inverse_matrix = child->EvaluateGlobalTransform().Inverse();
+				
+				for (unsigned int k = 0; k < 4; k++)
+				{
+					for (unsigned int l = 0; l < 4; l++)
+					{
+						inv_mat.m[k][l] = matrix.mData[k].Buffer()[l];
+					}
+				}
+				XMMATRIX preComp = XMLoadFloat4x4(&inv_mat);
 				InverseJoints.push_back(preComp);
 			}
 		}
