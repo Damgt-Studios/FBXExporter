@@ -861,22 +861,6 @@ SimpleVertexAnim* verticesAnim;
 using influence_set = array<influence, MAX_INFLUENCES>;
 vector<influence_set> control_point_influences;
 
-XMMATRIX FBXAMatrix_To_XMMATRIX(FbxAMatrix& m)
-{
-	XMMATRIX out;
-	for (int i = 0; i < 4; i++)
-	{
-		out.r[i].m128_f32[0] = m.Get(i, 0);
-		out.r[i].m128_f32[1] = m.Get(i, 1);
-		out.r[i].m128_f32[2] = m.Get(i, 2);
-		out.r[i].m128_f32[3] = m.Get(i, 3);
-
-
-
-	}
-	return out;
-
-}
 anim_clip out_clip;
 //void ProcessFbxSkeleton(FbxNode* Node, int parentindex)
 //{
@@ -1019,12 +1003,8 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 					{
 						fbx_joint rootJoint;
 						rootJoint.node = skeletonNode;
-						FbxAMatrix m = skeletonNode->EvaluateGlobalTransform();
-						rootJoint.global_xform = FBXAMatrix_To_XMMATRIX(m);
-						rootJoint.parent_index = -1;
-						joints.push_back(rootJoint);
+						FbxAMatrix matrix = skeletonNode->EvaluateGlobalTransform();
 						XMFLOAT4X4 mat;
-						FbxAMatrix matrix = skeletonNode->EvaluateGlobalTransform().Inverse();
 						for (unsigned int k = 0; k < 4; k++)
 						{
 							for (unsigned int l = 0; l < 4; l++)
@@ -1033,7 +1013,20 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 							}
 						}
 
-						XMMATRIX preComp = XMLoadFloat4x4(&mat);
+						rootJoint.global_xform = XMLoadFloat4x4(&mat);
+						rootJoint.parent_index = -1;
+						joints.push_back(rootJoint);
+						XMFLOAT4X4 inv_mat;
+						FbxAMatrix inv_matrix = skeletonNode->EvaluateGlobalTransform().Inverse();
+						for (unsigned int k = 0; k < 4; k++)
+						{
+							for (unsigned int l = 0; l < 4; l++)
+							{
+								inv_mat.m[k][l] = inv_matrix.mData[k].Buffer()[l];
+							}
+						}
+
+						XMMATRIX preComp = XMLoadFloat4x4(&inv_mat);
 						InverseJoints.push_back(preComp);
 						GetChildJoints();
 					}
@@ -1083,14 +1076,23 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 
 		keyframe key;
 		key.time = temp.Get();
-		for (int i = 0; i < joints.size(); i++)
+		for (unsigned int j = 0; j < joints.size(); j++)
 		{
-
-			key.jointsMatrix.push_back(FBXAMatrix_To_XMMATRIX(joints[i].node->EvaluateGlobalTransform(key.time)));
-			key.parents.push_back(joints[i].parent_index);
+			XMFLOAT4X4 mat;
+			FbxAMatrix matrix = joints[j].node->EvaluateGlobalTransform(key.time);
+			for (unsigned int k = 0; k < 4; k++)
+			{
+				for (unsigned int l = 0; l < 4; l++)
+				{
+					mat.m[k][l] = matrix.mData[k].Buffer()[l];
+				}
+			}
+		
+			key.jointsMatrix.push_back(XMLoadFloat4x4(&mat));
+			key.parents.push_back(joints[j].parent_index);
 		}
-
 		out_clip.frames.push_back(key);
+
 	}
 	for (int i = 0; i < InverseJoints.size(); i++)
 	{
@@ -1317,11 +1319,8 @@ void ProcessFbxMeshAnim(FbxNode* Node, const char* meshfile, const char* matpath
 
 					}
 
-
-
 					file_name.clear();
-					//file_name.append(path);
-					//file_name.append("/");
+					file_name.append(path);
 					file_name.append(dds);
 					strcpy(file_path.data(), file_name.c_str());
 
@@ -1361,7 +1360,7 @@ void ProcessFbxMeshAnim(FbxNode* Node, const char* meshfile, const char* matpath
 					}
 
 					file_name.clear();
-					//file_name.append(path);
+					file_name.append(path);
 					file_name.append(dds);
 					strcpy(file_path.data(), file_name.c_str());
 
@@ -1721,38 +1720,7 @@ void CompactifyAnim(SimpleVertexAnim* verticesCompact, const char* meshfile)
 
 }
 
-// Texture Stuff
-void CreateCustomFiles(std::vector<std::string> materials, std::string matfile) 
-{
-	std::vector<file_path_t> customPath;
-	for (unsigned int i = 0; i < materials.size(); i++)
-	{
-		bool slash = false;
-		string file_name = materials[i];
-		file_path_t file_path;
-		file_name.pop_back();
-		file_name.pop_back();
-		file_name.pop_back();
-		file_name.append("dds");
-		
-		strcpy(file_path.data(), file_name.c_str());
-		customPath.push_back(file_path);
-	}
 
-	if (matfile != "")
-	{
-		std::ofstream file(matfile, std::ios::trunc | std::ios::binary | std::ios::out);
-
-		assert(file.is_open());
-
-		uint32_t count = (uint32_t)customPath.size();
-
-		file.write((const char*)&count, sizeof(uint32_t));
-		file.write((const char*)customPath.data(), sizeof(file_path_t) * customPath.size());
-
-		file.close();
-	}
-}
 
 
 
