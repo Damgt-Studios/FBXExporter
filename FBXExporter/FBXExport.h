@@ -1332,7 +1332,8 @@ void ProcessFbxMeshAnim(FbxNode* Node, const char* meshfile, const char* matpath
 					}
 
 					file_name.clear();
-					file_name.append(path);
+					//file_name.append(path);
+					//file_name.append("/");
 					file_name.append(dds);
 					strcpy(file_path.data(), file_name.c_str());
 
@@ -1732,7 +1733,38 @@ void CompactifyAnim(SimpleVertexAnim* verticesCompact, const char* meshfile)
 
 }
 
+// Texture Stuff
+void CreateCustomFiles(std::vector<std::string> materials, std::string matfile) 
+{
+	std::vector<file_path_t> customPath;
+	for (unsigned int i = 0; i < materials.size(); i++)
+	{
+		bool slash = false;
+		string file_name = materials[i];
+		file_path_t file_path;
+		file_name.pop_back();
+		file_name.pop_back();
+		file_name.pop_back();
+		file_name.append("dds");
+		
+		strcpy(file_path.data(), file_name.c_str());
+		customPath.push_back(file_path);
+	}
 
+	if (matfile != "")
+	{
+		std::ofstream file(matfile, std::ios::trunc | std::ios::binary | std::ios::out);
+
+		assert(file.is_open());
+
+		uint32_t count = (uint32_t)customPath.size();
+
+		file.write((const char*)&count, sizeof(uint32_t));
+		file.write((const char*)customPath.data(), sizeof(file_path_t) * customPath.size());
+
+		file.close();
+	}
+}
 
 
 
