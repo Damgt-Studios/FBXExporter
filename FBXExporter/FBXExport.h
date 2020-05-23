@@ -1035,36 +1035,44 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 		}
 	}
 	//Animate Model
-	for (unsigned int j = 0; j < lScene->GetPoseCount(); j++)
+	int num_of_control_points = 0;
+	// Weights
+	for (int i = 0; i < lScene->GetPoseCount(); i++)
 	{
-		FbxPose* bindPose = lScene->GetPose(j);
-		if (bindPose->IsBindPose())
+		FbxPose* pose = lScene->GetPose(i);
+
+		if (pose->IsBindPose())
 		{
-			for (unsigned int i = 0; i < bindPose->GetCount(); i++)
+			int node_count = pose->GetCount();
+
+			FbxNode* node = nullptr;
+			FbxMesh* mesh = nullptr;
+			for (int j = 0; j < node_count; j++)
 			{
-				FbxNode* skeletonNode = bindPose->GetNode(i);
-				FbxMesh* mesh = skeletonNode->GetMesh();
-				if (mesh != NULL)
+				node = pose->GetNode(j);
 
+				if (node)
 				{
-					for (unsigned int j = 0; j < mesh->GetDeformerCount(); j++)
+					mesh = node->GetMesh();
+
+					if (mesh)
 					{
-						if (mesh->GetDeformer(j)->Is<FbxSkin>())
+						int deformer_count = mesh->GetDeformerCount();
+
+						for (int k = 0; k < deformer_count; k++)
 						{
-							FbxSkin* skin = FbxCast<FbxSkin>(mesh->GetDeformer(j));
-
-
-							GetClusters(skin);
-							//					int w = 0;
-
+							FbxDeformer* deformer = mesh->GetDeformer(k);
+							if (deformer->Is<FbxSkin>())
+							{
+								FbxSkin* skin = FbxCast<FbxSkin>(deformer);
+								GetClusters(skin);
+							}
 						}
 					}
 				}
 			}
 		}
-	}
-
-	FbxAnimStack* stack = lScene->GetCurrentAnimationStack();
+	}	FbxAnimStack* stack = lScene->GetCurrentAnimationStack();
 	FbxTimeSpan timeSpan = stack->GetLocalTimeSpan();
 	FbxTime duration = timeSpan.GetDuration();
 	out_clip.duration = duration.Get();
@@ -1106,42 +1114,46 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 void GetClusters(FbxSkin* skin)
 {
 
-	for (unsigned int k = 0; k < skin->GetClusterCount(); k++)
+	int c = skin->GetClusterCount();
+	for (unsigned int i = 0; i < skin->GetClusterCount(); i++)
 	{
-		FbxCluster* cluster = skin->GetCluster(k);
-		FbxNode* link = cluster->GetLink();
-		int jointIndex = -1;
-		for (unsigned int jIndex = 0; jIndex < joints.size(); jIndex++)
-		{
-			if (link == joints[jIndex].node)
-			{
-				jointIndex = jIndex;
-				break;
+		int joint_index = -1;
+		FbxCluster* cluster = skin->GetCluster(i);
+		FbxNode* node = cluster->GetLink();
 
+		for (unsigned int j = 0; j < joints.size(); j++)
+		{
+			if (node == joints[j].node)
+			{
+				joint_index = j;
+				break;
 			}
 		}
-		assert(jointIndex != -1);
-		int controlPointICount = cluster->GetControlPointIndicesCount();
-		auto controlPointIndices = cluster->GetControlPointIndices();
-		auto controlPointWeghts = cluster->GetControlPointWeights();
 
-		for (unsigned int c = 0; c < controlPointICount; c++)
+		assert(joint_index != -1);
+
+		int cpi_count = cluster->GetControlPointIndicesCount();
+
+		auto cpi = cluster->GetControlPointIndices();
+
+		auto weights = cluster->GetControlPointWeights();
+
+		for (unsigned int k = 0; k < cpi_count; k++)
 		{
-			int index = controlPointIndices[c];
+			int index = cpi[k];
+
 			influence_set* influenceSet = &control_point_influences[index];
-			double weight = controlPointWeghts[c];
-			influence temp = influence({ jointIndex, (float)weight });
-			for (auto influence = influenceSet->begin(); influence != influenceSet->end(); influence++)
+			double weight = weights[k];
+			influence temp = influence({ joint_index, (float)weight });
+
+			for (auto inf = influenceSet->begin(); inf != influenceSet->end(); inf++)
 			{
-				if (influence->weight < temp.weight)
+				if (inf->weight < temp.weight)
 				{
-					swap(temp, *influence);
+					std::swap(temp, *inf);
 				}
 			}
-
-
 		}
-
 
 	}
 };
