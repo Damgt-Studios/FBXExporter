@@ -20,7 +20,7 @@ int main()
 //We Now Can load meshes with Animations 
 	//The following Function works the same as the one from before however now it generates meshes with joint and weight data
 	//Also generates a Animation file with base joint data, inverse joint data and animation clips
-	Anim_FBX_InitLoad("Assets/Run.fbx", "ObjectData/TestAnim.AnimMesh", "ObjectData/Test.animfile", "Assets/Run.fbm", "ObjectData/BattleMage.mat");
+	Anim_FBX_InitLoad("Assets/Default.fbx", "ObjectData/TestAnim.AnimMesh", "ObjectData/Test.animfile", "Assets/Run.fbm", "ObjectData/BattleMage.mat");
 
 	//Custom Mesh Files
 	std::vector<std::string> materials;

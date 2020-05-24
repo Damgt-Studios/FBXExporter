@@ -1072,7 +1072,8 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 				}
 			}
 		}
-	}	FbxAnimStack* stack = lScene->GetCurrentAnimationStack();
+	}	
+	FbxAnimStack* stack = lScene->GetCurrentAnimationStack();
 	FbxTimeSpan timeSpan = stack->GetLocalTimeSpan();
 	FbxTime duration = timeSpan.GetDuration();
 	out_clip.duration = duration.Get();
@@ -1658,15 +1659,7 @@ void CompactifyAnim(SimpleVertexAnim* verticesCompact, const char* meshfile)
 				(abs(verticesCompact[i].Normal.z - vertexList[j].Normal.z) < epsilon) &&
 				(abs(verticesCompact[i].Tex.x - vertexList[j].Tex.x) < epsilon) &&
 				(abs(verticesCompact[i].Tex.y - vertexList[j].Tex.y) < epsilon) &&
-				(abs(verticesCompact[i].Tex.z - vertexList[j].Tex.z) < epsilon) &&
-				(abs(verticesCompact[i].Joint.x - vertexList[j].Joint.x) < epsilon) &&
-				(abs(verticesCompact[i].Joint.y - vertexList[j].Joint.y) < epsilon) &&
-				(abs(verticesCompact[i].Joint.z - vertexList[j].Joint.z) < epsilon) &&
-				(abs(verticesCompact[i].Joint.w - vertexList[j].Joint.w) < epsilon) &&
-				(abs(verticesCompact[i].Weight.x - vertexList[j].Weight.x) < epsilon) &&
-				(abs(verticesCompact[i].Weight.y - vertexList[j].Weight.y) < epsilon) &&
-				(abs(verticesCompact[i].Weight.z - vertexList[j].Weight.z) < epsilon) &&
-				(abs(verticesCompact[i].Weight.w - vertexList[j].Weight.w) < epsilon))
+				(abs(verticesCompact[i].Tex.z - vertexList[j].Tex.z) < epsilon) )
 			{
 				Duplicate = true;
 				indices[i] = j;
