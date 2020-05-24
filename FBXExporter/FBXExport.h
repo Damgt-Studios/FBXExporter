@@ -907,6 +907,7 @@ void GetChildJoints()
 			{
 				fbx_joint childJoint;
 				childJoint.node = child;
+				childJoint.childCount = childJoint.node->GetChildCount();
 				FbxAMatrix matrix = child->EvaluateGlobalTransform(0);
 				XMFLOAT4X4 mat;
 				for (unsigned int k = 0; k < 4; k++)
@@ -922,7 +923,7 @@ void GetChildJoints()
 				joints.push_back(childJoint);
 
 				XMFLOAT4X4 inv_mat;
-				FbxAMatrix inverse_matrix = child->EvaluateGlobalTransform().Inverse();
+				FbxAMatrix inverse_matrix = child->EvaluateGlobalTransform(0).Inverse();
 				
 				for (unsigned int k = 0; k < 4; k++)
 				{
@@ -1015,6 +1016,7 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 
 						rootJoint.global_xform = XMLoadFloat4x4(&mat);
 						rootJoint.parent_index = -1;
+						rootJoint.childCount = rootJoint.node->GetChildCount();
 						joints.push_back(rootJoint);
 						XMFLOAT4X4 inv_mat;
 						FbxAMatrix inv_matrix = skeletonNode->EvaluateGlobalTransform().Inverse();
@@ -1220,6 +1222,7 @@ void ProcessFbxMeshAnim(FbxNode* Node, const char* meshfile, const char* matpath
 				verticesAnim[j].Weight.y = control_point_influences[j][1].weight;
 				verticesAnim[j].Weight.z = control_point_influences[j][2].weight;
 				verticesAnim[j].Weight.w = control_point_influences[j][3].weight;
+
 
 				float sum = verticesAnim[j].Weight.x + verticesAnim[j].Weight.y + verticesAnim[j].Weight.z + verticesAnim[j].Weight.w;
 
