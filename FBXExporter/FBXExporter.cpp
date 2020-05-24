@@ -39,6 +39,7 @@ int main()
 	Load_AnimFile("ObjectData/Test.animfile", skeleton, inverse_transforms, clip);
 	//FBX_InitLoad("Assets/cube.fbx", "ObjectData/cube.mesh");
 
-	return 1;
+ 
+ 	 return 1;
 }
 
