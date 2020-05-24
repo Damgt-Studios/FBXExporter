@@ -907,7 +907,7 @@ void GetChildJoints()
 			{
 				fbx_joint childJoint;
 				childJoint.node = child;
-				FbxAMatrix matrix = child->EvaluateGlobalTransform();
+				FbxAMatrix matrix = child->EvaluateGlobalTransform(0);
 				XMFLOAT4X4 mat;
 				for (unsigned int k = 0; k < 4; k++)
 				{
@@ -1003,7 +1003,7 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 					{
 						fbx_joint rootJoint;
 						rootJoint.node = skeletonNode;
-						FbxAMatrix matrix = skeletonNode->EvaluateGlobalTransform();
+						FbxAMatrix matrix = skeletonNode->EvaluateGlobalTransform(0);
 						XMFLOAT4X4 mat;
 						for (unsigned int k = 0; k < 4; k++)
 						{
@@ -1103,10 +1103,11 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 		out_clip.frames.push_back(key);
 
 	}
-	for (int i = 0; i < InverseJoints.size(); i++)
-	{
-		InverseJoints[i] = XMMatrixInverse(nullptr, InverseJoints[i]);
-	}
+	//for (int i = 0; i < InverseJoints.size(); i++)
+	//{
+	//	InverseJoints[i] = XMMatrixInverse(nullptr, InverseJoints[i]);
+	//}
+
 
 	ProcessFbxMeshAnim(lScene->GetRootNode(), meshfile, matPath, matfile);
 
@@ -1659,7 +1660,7 @@ void CompactifyAnim(SimpleVertexAnim* verticesCompact, const char* meshfile)
 				(abs(verticesCompact[i].Normal.z - vertexList[j].Normal.z) < epsilon) &&
 				(abs(verticesCompact[i].Tex.x - vertexList[j].Tex.x) < epsilon) &&
 				(abs(verticesCompact[i].Tex.y - vertexList[j].Tex.y) < epsilon) &&
-				(abs(verticesCompact[i].Tex.z - vertexList[j].Tex.z) < epsilon) )
+				(abs(verticesCompact[i].Tex.z - vertexList[j].Tex.z) < epsilon))
 			{
 				Duplicate = true;
 				indices[i] = j;
