@@ -943,6 +943,20 @@ void ProcessSkeletonHierarchy(FbxNode* inRootNode, int parentIndex)
 		ProcessSkeletonHierarchyRecursively(currNode, 0, parentIndex);
 	}
 };
+FbxAMatrix geometryTransform;
+FbxAMatrix GetGeometryTransformation(FbxNode* inNode)
+{
+	if (!inNode)
+	{
+		throw std::exception("Null for mesh geometry");
+	}
+
+	const FbxVector4 lT = inNode->GetGeometricTranslation(FbxNode::eSourcePivot);
+	const FbxVector4 lR = inNode->GetGeometricRotation(FbxNode::eSourcePivot);
+	const FbxVector4 lS = inNode->GetGeometricScaling(FbxNode::eSourcePivot);
+
+	return FbxAMatrix(lT, lR, lS);
+}
 
 void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* animFile, const char* matPath, const char* matfile)
 {
@@ -1016,7 +1030,6 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 			for (int j = 0; j < node_count; j++)
 			{
 				node = pose->GetNode(j);
-			
 				if (node != nullptr && node->GetNodeAttribute() && node->GetNodeAttribute()->GetAttributeType() && node->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh)
 				{
 					mesh = node->GetMesh();
@@ -1030,6 +1043,8 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 							FbxDeformer* deformer = mesh->GetDeformer(k);
 							if (deformer->Is<FbxSkin>())
 							{
+								GetGeometryTransformation(node);
+
 								FbxSkin* skin = FbxCast<FbxSkin>(deformer);
 								GetClusters(skin);
 							}
@@ -1084,7 +1099,6 @@ int FindJointIndexUsingName(const char* name)
 
 void GetClusters(FbxSkin* skin)
 {
-
 	int numOfClusters = skin->GetClusterCount();
 	for (unsigned int clusterIndex = 0; clusterIndex < numOfClusters; clusterIndex++)
 	{
@@ -1099,6 +1113,11 @@ void GetClusters(FbxSkin* skin)
 		int cpi_count = cluster->GetControlPointIndicesCount();
 
 		auto cpi = cluster->GetControlPointIndices();
+		FbxAMatrix transformLinkMatrix;
+		FbxAMatrix transformMatrix;
+		cluster->GetTransformLinkMatrix(transformLinkMatrix);
+		cluster->GetTransformMatrix(transformMatrix);
+		InverseJoints[joint_index] = ToXm(transformLinkMatrix.Inverse() * transformMatrix * geometryTransform);
 
 		auto weights = cluster->GetControlPointWeights();
 
