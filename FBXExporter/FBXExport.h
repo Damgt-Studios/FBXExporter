@@ -815,7 +815,7 @@ void  Load_Mesh(const char* meshFileName, SimpleMesh& mesh)
 //Animation
 struct fbx_joint
 {
-	FbxNode* node; XMMATRIX global_xform; int parent_index; int childCount;
+	FbxNode* node; XMMATRIX global_xform; int parent_index; int childCount; const char* name;
 
 };
 struct bones
@@ -862,39 +862,9 @@ using influence_set = array<influence, MAX_INFLUENCES>;
 vector<influence_set> control_point_influences;
 
 anim_clip out_clip;
-//void ProcessFbxSkeleton(FbxNode* Node, int parentindex)
-//{
-//	int childCount = Node->GetChildCount();
-//	XMMATRIX m = FBXAMatrix_To_XMMATRIX((Node->EvaluateGlobalTransform()));
-//	fbx_joint joint = { Node, m, parentindex,  childCount };
-//	joints.push_back(joint);
-//	XMFLOAT4X4 mat;
-//	FbxAMatrix matrix = Node->EvaluateGlobalTransform().Inverse();
-//	for (unsigned int k = 0; k < 4; k++)
-//	{
-//		for (unsigned int l = 0; l < 4; l++)
-//		{
-//			mat.m[k][l] = matrix.mData[k].Buffer()[l];
-//		}
-//	}
-//
-//	XMMATRIX preComp = XMLoadFloat4x4(&mat);
-//	InverseJoints.push_back(preComp);
-//	int jointCount = joints.size();
-//	for (int i = 0; i < childCount; i++)
-//	{
-//		FbxNode* childNode = Node->GetChild(i);
-//		FbxSkeleton* skeleton = childNode->GetSkeleton();
-//		if (skeleton != nullptr)
-//		{
-//
-//			ProcessFbxSkeleton(childNode, jointCount - 1);
-//
-//		}
-//	}
-//
-//
-//}
+
+
+//Convert FbxAMatrix to XMMatrix
 static XMMATRIX ToXm(const FbxAMatrix& pSrc)
 {
 	return XMMatrixSet(
@@ -955,18 +925,22 @@ void ProcessSkeletonHierarchyRecursively(FbxNode* inNode, int myIndex, int inPar
 		currJoint.node = inNode;
 		currJoint.global_xform = ToXm(inNode->EvaluateGlobalTransform());;
 		InverseJoints.push_back(ToXm(inNode->EvaluateGlobalTransform().Inverse()));
-		//currJoint.mName = inNode->GetName();
+		currJoint.name = inNode->GetName();
 		joints.push_back(currJoint);
 	}
-	
+	for (int i = 0; i < inNode->GetChildCount(); i++)
+	{
+		ProcessSkeletonHierarchyRecursively(inNode->GetChild(i), joints.size(), myIndex);
+	}
 
 }
-void ProcessSkeletonHierarchy(FbxNode* inRootNode)
+void ProcessSkeletonHierarchy(FbxNode* inRootNode, int parentIndex)
 {
 	for (int childIndex = 0; childIndex < inRootNode->GetChildCount(); ++childIndex)
 	{
+
 		FbxNode* currNode = inRootNode->GetChild(childIndex);
-		ProcessSkeletonHierarchyRecursively(currNode, 0, -1);
+		ProcessSkeletonHierarchyRecursively(currNode, 0, parentIndex);
 	}
 };
 
@@ -1015,59 +989,15 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 	}
 
 	//Skeleton
-	for (unsigned int j = 0; j < lScene->GetPoseCount(); j++)
-	{
+
+		
 
 
-		FbxPose* bindPose = lScene->GetPose(j);
-		if (bindPose->IsBindPose())
-		{
-			for (unsigned int i = 0; i < bindPose->GetCount(); i++)
-			{
+
+	FbxNode* skeletonNode = lScene->GetRootNode();;
+				ProcessSkeletonHierarchy(skeletonNode,  -1);
 
 
-				FbxNode* skeletonNode = bindPose->GetNode(i);
-				ProcessSkeletonHierarchy(skeletonNode);
-
-				//FbxSkeleton* skeleton = skeletonNode->GetSkeleton();
-				//if (skeleton != NULL)
-				//{
-				//	if (skeleton->IsSkeletonRoot())
-				//	{
-				//		fbx_joint rootJoint;
-				//		rootJoint.node = skeletonNode;
-				//		FbxAMatrix matrix = skeletonNode->EvaluateGlobalTransform();
-				//		XMFLOAT4X4 mat;
-				//		for (unsigned int k = 0; k < 4; k++)
-				//		{
-				//			for (unsigned int l = 0; l < 4; l++)
-				//			{
-				//				mat.m[k][l] = matrix.mData[k].Buffer()[l];
-				//			}
-				//		}
-
-				//		rootJoint.global_xform = XMLoadFloat4x4(&mat);
-				//		rootJoint.parent_index = -1;
-				//		rootJoint.childCount = rootJoint.node->GetChildCount();
-				//		joints.push_back(rootJoint);
-				//		XMFLOAT4X4 inv_mat;
-				//		FbxAMatrix inv_matrix = skeletonNode->EvaluateGlobalTransform().Inverse();
-				//		for (unsigned int k = 0; k < 4; k++)
-				//		{
-				//			for (unsigned int l = 0; l < 4; l++)
-				//			{
-				//				inv_mat.m[k][l] = inv_matrix.mData[k].Buffer()[l];
-				//			}
-				//		}
-
-				//		XMMATRIX preComp = XMLoadFloat4x4(&inv_mat);
-				//		InverseJoints.push_back(preComp);
-				//		GetChildJoints();
-				//	}
-				//}
-			}
-		}
-}
 
 	
 	//Animate Model
@@ -1086,8 +1016,8 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 			for (int j = 0; j < node_count; j++)
 			{
 				node = pose->GetNode(j);
-
-				if (node)
+			
+				if (node != nullptr && node->GetNodeAttribute() && node->GetNodeAttribute()->GetAttributeType() && node->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh)
 				{
 					mesh = node->GetMesh();
 
@@ -1125,15 +1055,9 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 		{
 			XMFLOAT4X4 mat;
 			FbxAMatrix matrix = joints[j].node->EvaluateGlobalTransform(key.time);
-			for (unsigned int k = 0; k < 4; k++)
-			{
-				for (unsigned int l = 0; l < 4; l++)
-				{
-					mat.m[k][l] = matrix.mData[k].Buffer()[l];
-				}
-			}
 		
-			key.jointsMatrix.push_back(XMLoadFloat4x4(&mat));
+		
+			key.jointsMatrix.push_back(ToXm(matrix));
 			key.parents.push_back(joints[j].parent_index);
 		}
 		out_clip.frames.push_back(key);
@@ -1145,25 +1069,31 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 
 	WriteOutAnimationData(animFile);
 }
+int FindJointIndexUsingName(const char* name)
+{
+
+	for (int i = 0; i < joints.size(); i++)
+	{
+		if (joints[i].name == name)
+		{
+			return i;
+		}
+
+	}
+}
+
 void GetClusters(FbxSkin* skin)
 {
 
-	int c = skin->GetClusterCount();
-	for (unsigned int i = 0; i < skin->GetClusterCount(); i++)
+	int numOfClusters = skin->GetClusterCount();
+	for (unsigned int clusterIndex = 0; clusterIndex < numOfClusters; clusterIndex++)
 	{
 		int joint_index = -1;
-		FbxCluster* cluster = skin->GetCluster(i);
+		FbxCluster* cluster = skin->GetCluster(clusterIndex);
+		
 		FbxNode* node = cluster->GetLink();
 
-		for (unsigned int j = 0; j < joints.size(); j++)
-		{
-			if (node == joints[j].node)
-			{
-				joint_index = j;
-				break;
-			}
-		}
-
+		joint_index = FindJointIndexUsingName(node->GetName());
 		assert(joint_index != -1);
 
 		int cpi_count = cluster->GetControlPointIndicesCount();
@@ -1288,15 +1218,15 @@ void ProcessFbxMeshAnim(FbxNode* Node, const char* meshfile, const char* matpath
 				vertices2[k].Normal.y = normalsVec[k].mData[1];
 				vertices2[k].Normal.z = normalsVec[k].mData[2];
 
-				vertices2[k].Joint.x = verticesAnim[indices[k]].Joint.x;
-				vertices2[k].Joint.y = verticesAnim[indices[k]].Joint.y;
-				vertices2[k].Joint.z = verticesAnim[indices[k]].Joint.z;
-				vertices2[k].Joint.w = verticesAnim[indices[k]].Joint.w;
+				//vertices2[k].Joint.x = verticesAnim[indices[k]].Joint.x;
+				//vertices2[k].Joint.y = verticesAnim[indices[k]].Joint.y;
+				//vertices2[k].Joint.z = verticesAnim[indices[k]].Joint.z;
+				//vertices2[k].Joint.w = verticesAnim[indices[k]].Joint.w;
 
-				vertices2[k].Weight.x = verticesAnim[indices[k]].Weight.x;
-				vertices2[k].Weight.y = verticesAnim[indices[k]].Weight.y;
-				vertices2[k].Weight.z = verticesAnim[indices[k]].Weight.z;
-				vertices2[k].Weight.w = verticesAnim[indices[k]].Weight.w;
+				//vertices2[k].Weight.x = verticesAnim[indices[k]].Weight.x;
+				//vertices2[k].Weight.y = verticesAnim[indices[k]].Weight.y;
+				//vertices2[k].Weight.z = verticesAnim[indices[k]].Weight.z;
+				//vertices2[k].Weight.w = verticesAnim[indices[k]].Weight.w;
 
 				int lUVIndex = lUseIndex ? lUVElement->GetIndexArray().GetAt(k) : k;
 				lUVValue = lUVElement->GetDirectArray().GetAt(lUVIndex);
