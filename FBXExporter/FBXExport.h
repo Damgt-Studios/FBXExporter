@@ -1004,10 +1004,6 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 
 	//Skeleton
 
-		
-
-
-
 	FbxNode* skeletonNode = lScene->GetRootNode();;
 				ProcessSkeletonHierarchy(skeletonNode,  -1);
 
@@ -1043,7 +1039,7 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 							FbxDeformer* deformer = mesh->GetDeformer(k);
 							if (deformer->Is<FbxSkin>())
 							{
-								GetGeometryTransformation(node);
+								geometryTransform = GetGeometryTransformation(node);
 
 								FbxSkin* skin = FbxCast<FbxSkin>(deformer);
 								GetClusters(skin);
@@ -1054,6 +1050,7 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 			}
 		}
 	}	
+
 	FbxAnimStack* stack = lScene->GetCurrentAnimationStack();
 	FbxTimeSpan timeSpan = stack->GetLocalTimeSpan();
 	FbxTime duration = timeSpan.GetDuration();
@@ -1071,12 +1068,10 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 			XMFLOAT4X4 mat;
 			FbxAMatrix matrix = joints[j].node->EvaluateGlobalTransform(key.time);
 		
-		
 			key.jointsMatrix.push_back(ToXm(matrix));
 			key.parents.push_back(joints[j].parent_index);
 		}
 		out_clip.frames.push_back(key);
-
 	}
 
 
@@ -1108,6 +1103,7 @@ void GetClusters(FbxSkin* skin)
 		FbxNode* node = cluster->GetLink();
 
 		joint_index = FindJointIndexUsingName(node->GetName());
+		
 		assert(joint_index != -1);
 
 		int cpi_count = cluster->GetControlPointIndicesCount();
