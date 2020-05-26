@@ -857,12 +857,49 @@ void WriteOutAnimationData(const char* AnimFile);
 
 vector<fbx_joint> joints;
 SimpleVertexAnim* verticesAnim;
-
 using influence_set = array<influence, MAX_INFLUENCES>;
 vector<influence_set> control_point_influences;
-
+FbxAMatrix geometryTransform;
 anim_clip out_clip;
+template<typename T>
+void SafeDestroy(T item)
+{
+	if (item)
 
+		item->Destroy();
+
+}
+template<typename T>
+
+void SafeDeletePointer(T item)
+{
+
+	if (item)
+	{
+		delete item;
+	}
+	item = nullptr;
+		
+}
+
+void ClearMemory()
+{
+	joints.clear();
+	SafeDeletePointer(verticesAnim);
+	vector<fbx_joint>().swap(joints);
+	vector<influence_set>().swap(control_point_influences);
+	for (unsigned int i = 0; i < out_clip.frames.size(); i++)
+	{
+		vector<XMMATRIX>().swap(out_clip.frames[i].jointsMatrix);
+		vector<int>().swap(out_clip.frames[i].parents);
+
+	}
+	vector<keyframe>().swap(out_clip.frames);
+	vector<XMFLOAT3>().swap( positionList);
+	vector<XMFLOAT3>().swap(normalList);
+	vector<XMFLOAT3>().swap(uvList);
+	vector<file_path_t>().swap( paths);
+}
 
 //Convert FbxAMatrix to XMMatrix
 static XMMATRIX ToXm(const FbxAMatrix& pSrc)
@@ -943,7 +980,6 @@ void ProcessSkeletonHierarchy(FbxNode* inRootNode, int parentIndex)
 		ProcessSkeletonHierarchyRecursively(currNode, 0, parentIndex);
 	}
 };
-FbxAMatrix geometryTransform;
 FbxAMatrix GetGeometryTransformation(FbxNode* inNode)
 {
 	if (!inNode)
@@ -1078,7 +1114,9 @@ void Anim_FBX_InitLoad(const char* fbxfile, const char* meshfile, const char* an
 	ProcessFbxMeshAnim(lScene->GetRootNode(), meshfile, matPath, matfile);
 
 	WriteOutAnimationData(animFile);
+	ClearMemory();
 }
+
 int FindJointIndexUsingName(const char* name)
 {
 
